@@ -31,7 +31,7 @@ img { display: block; }
 }
 @font-face {
   font-family: 'HakugenCopy';
-  src: url('fonts/hakugencopy.ttf') format('truetype');
+  src: url('fonts/hakugencopy.woff2') format('woff2');
 }
 
 /* ==================== 页面容器 ==================== */
