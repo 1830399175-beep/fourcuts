@@ -1,0 +1,8 @@
+<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#E9EDC9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+  <!-- 后层卡片 -->
+  <rect x="2.5" y="3.5" width="11" height="14" rx="2.5" opacity="0.35"/>
+  <!-- 中层卡片（微偏移） -->
+  <rect x="6" y="6" width="11" height="14" rx="2.5" opacity="0.6"/>
+  <!-- 前层卡片 -->
+  <rect x="10" y="8.5" width="11" height="14" rx="2.5"/>
+</svg>

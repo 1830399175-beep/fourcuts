@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://unpkg.com; worker-src 'self' blob: https://unpkg.com;">
+  <title>FourCuts 肆格</title>
+  <link rel="stylesheet" href="app.css?v=52">
+</head>
+<body>
+
+  <!-- ==================== Home 首页 ==================== -->
+  <section id="page-home" class="page">
+    <div class="home-page">
+      <!-- 品牌卡片 -->
+      <div class="brand-card">
+        <img class="brand-bg-img" src="assets/brand-bg-new.jpg" alt="">
+      </div>
+
+      <!-- 模板选择 -->
+      <div class="template-section">
+        <span class="section-label">选择照片主题</span>
+        <div class="template-scroll">
+          <div class="template-grid" id="templateGrid"></div>
+        </div>
+      </div>
+
+      <!-- 底部按钮 -->
+      <div class="start-area">
+        <button class="start-btn start-btn--disabled" id="btnStart" disabled>开始拍照</button>
+        <button class="start-btn start-btn--import start-btn--disabled" id="btnImport" disabled>导入照片</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Generator 图案生成页 ==================== -->
+  <section id="page-generator" class="page" style="display:none">
+    <div class="gen-page">
+      <button class="nav-back-btn nav-back-btn--light" style="position:fixed;top:12px;left:16px;" onclick="pageRouter.redirectTo('page-home')"><div class="nav-back-arrow"></div></button>
+      <div class="gen-nav">
+        <span class="gen-nav-title">自定义背景</span>
+        <span class="gen-nav-sub">I ♥️ 图案生成器</span>
+      </div>
+      <div class="gen-preview-wrap" id="genPreviewWrap">
+        <img class="gen-preview-img" id="genPreviewImg" alt="" style="display:none">
+        <div class="gen-preview-empty" id="genPreviewEmpty">
+          <span class="gen-preview-empty-text">点击生成预览</span>
+        </div>
+        <div class="gen-preview-mask" id="genPreviewMask" style="display:none">
+          <div class="gen-spinner"></div>
+          <span class="gen-mask-text">正在生成平铺图案...</span>
+        </div>
+      </div>
+      <div class="gen-input-area">
+        <div class="gen-input-row">
+          <span class="gen-input-prefix">I ♥️ </span>
+          <input class="gen-input" id="genInput" placeholder="输入文字，如 ME" maxlength="12" style="text-transform:uppercase;">
+          <button class="gen-btn" id="genBtn" onclick="GeneratorPage.onGenerate()">生成</button>
+        </div>
+      </div>
+      <div class="gen-bottom">
+        <button class="gen-next-btn" id="genNextBtn" onclick="GeneratorPage.onNext()">下一步</button>
+      </div>
+    </div>
+    <canvas id="genCanvas" class="gen-canvas-hidden"></canvas>
+  </section>
+
+  <!-- ==================== Generator Dot 波点生成器(TPL-03) ==================== -->
+  <section id="page-generator-dot" class="page" style="display:none">
+    <div class="gen-page">
+      <button class="nav-back-btn nav-back-btn--light" style="position:fixed;top:12px;left:16px;" onclick="pageRouter.redirectTo('page-home')"><div class="nav-back-arrow"></div></button>
+      <div class="gen-nav">
+        <span class="gen-nav-title">波点背景</span>
+        <span class="gen-nav-sub">选择波点颜色与底色</span>
+      </div>
+      <div class="gen-preview-wrap" id="genDotPreviewWrap">
+        <img class="gen-preview-img" id="genDotPreviewImg" alt="" style="display:none">
+        <div class="gen-preview-empty" id="genDotPreviewEmpty"><span class="gen-preview-empty-text">点击生成预览</span></div>
+        <div class="gen-preview-mask" id="genDotPreviewMask" style="display:none">
+          <div class="gen-spinner"></div><span class="gen-mask-text">正在生成波点图案...</span>
+        </div>
+      </div>
+      <div class="gen-color-area">
+        <span class="gen-color-label">波点颜色</span>
+        <div class="gen-color-swatch" id="genDotDotColors"></div>
+        <span class="gen-color-label">底色</span>
+        <div class="gen-color-swatch" id="genDotBgColors"></div>
+      </div>
+      <div class="gen-bottom">
+        <button class="gen-next-btn" onclick="GeneratorDotPage.onNext()">下一步</button>
+      </div>
+    </div>
+    <canvas id="genDotCanvas" class="gen-canvas-hidden"></canvas>
+  </section>
+
+  <!-- ==================== Generator Plaid 格纹生成器(TPL-05) ==================== -->
+  <section id="page-generator-plaid" class="page" style="display:none">
+    <div class="gen-page">
+      <button class="nav-back-btn nav-back-btn--light" style="position:fixed;top:12px;left:16px;" onclick="pageRouter.redirectTo('page-home')"><div class="nav-back-arrow"></div></button>
+      <div class="gen-nav">
+        <span class="gen-nav-title">格纹背景</span>
+        <span class="gen-nav-sub">苏格兰格纹图案生成器</span>
+      </div>
+      <div class="gen-preview-wrap" id="genPlaidPreviewWrap">
+        <img class="gen-preview-img" id="genPlaidPreviewImg" alt="" style="display:none">
+        <div class="gen-preview-empty" id="genPlaidPreviewEmpty"><span class="gen-preview-empty-text">选择颜色预览</span></div>
+        <div class="gen-preview-mask" id="genPlaidPreviewMask" style="display:none">
+          <div class="gen-spinner"></div><span class="gen-mask-text">正在生成格纹图案...</span>
+        </div>
+      </div>
+      <div class="gen-color-area">
+        <span class="gen-color-label">基调色</span>
+        <div class="gen-color-swatch" id="genPlaidC1"></div>
+        <span class="gen-color-label">辅调色</span>
+        <div class="gen-color-swatch" id="genPlaidC2"></div>
+        <span class="gen-color-label">强调色</span>
+        <div class="gen-color-swatch" id="genPlaidC3"></div>
+      </div>
+      <div class="gen-bottom">
+        <button class="gen-next-btn" onclick="GeneratorPlaidPage.onNext()">下一步</button>
+      </div>
+    </div>
+    <canvas id="genPlaidCanvas" class="gen-canvas-hidden"></canvas>
+  </section>
+
+  <!-- ==================== Generator Frost 雾气背景色(TPL-08) ==================== -->
+  <section id="page-generator-frost" class="page" style="display:none">
+    <div class="gen-page">
+      <button class="nav-back-btn nav-back-btn--light" style="position:fixed;top:12px;left:16px;" onclick="pageRouter.redirectTo('page-home')"><div class="nav-back-arrow"></div></button>
+      <div class="gen-nav">
+        <span class="gen-nav-title">雾气背景色</span>
+        <span class="gen-nav-sub">选择背景颜色与深浅</span>
+      </div>
+      <div class="gen-preview-wrap" id="genFrostPreviewWrap">
+        <div class="gen-frost-preview-color" id="genFrostPreviewColor"></div>
+        <div class="gen-preview-mask" id="genFrostPreviewMask" style="display:none">
+          <div class="gen-spinner"></div><span class="gen-mask-text">正在生成...</span>
+        </div>
+      </div>
+      <div class="gen-color-area">
+        <span class="gen-color-label">背景颜色</span>
+        <div class="gen-color-swatch" id="genFrostColors"></div>
+        <span class="gen-color-label">深浅度：<span id="genFrostOpacityVal">100%</span></span>
+        <div class="gen-frost-slider-wrap">
+          <span class="gen-frost-slider-label">淡</span>
+          <input type="range" class="gen-frost-slider" id="genFrostOpacitySlider" min="5" max="100" value="100" step="1" oninput="GeneratorFrostPage.onOpacityChange(this.value)">
+          <span class="gen-frost-slider-label">深</span>
+        </div>
+      </div>
+      <div class="gen-bottom">
+        <button class="gen-next-btn" onclick="GeneratorFrostPage.onNext()">下一步</button>
+      </div>
+    </div>
+    <canvas id="genFrostCanvas" class="gen-canvas-hidden"></canvas>
+  </section>
+
+  <!-- ==================== Layout Preview 排版选择页 ==================== -->
+  <section id="page-layout-preview" class="page" style="display:none">
+    <div class="lp-page">
+      <button class="nav-back-btn nav-back-btn--light" style="position:fixed;top:12px;left:16px;" onclick="pageRouter.redirectTo('page-home')"><div class="nav-back-arrow"></div></button>
+      <div class="lp-nav">
+        <span class="lp-nav-title">选择排版</span>
+      </div>
+      <div class="lp-display" id="lpLayoutDisplay">
+        <canvas class="noise-canvas" id="layoutNoiseCanvas" style="display:none"></canvas>
+        <img class="lp-bg-img" id="lpLayoutBgImg" alt="" style="display:none">
+        <div class="lp-bg-placeholder" id="lpLayoutBgPH"></div>
+        <div class="lp-grid lp-grid-2x2" id="lpLayoutGrid2x2">
+          <div class="lp-slot lp-slot-2x2"></div><div class="lp-slot lp-slot-2x2"></div>
+          <div class="lp-slot lp-slot-2x2"></div><div class="lp-slot lp-slot-2x2"></div>
+        </div>
+        <div class="lp-grid lp-grid-1x4" id="lpLayoutGrid1x4" style="display:none">
+          <div class="lp-slot lp-slot-1x4"></div><div class="lp-slot lp-slot-1x4"></div>
+          <div class="lp-slot lp-slot-1x4"></div><div class="lp-slot lp-slot-1x4"></div>
+        </div>
+        <div class="lp-grid lp-grid-3x4" id="lpLayoutGrid3x4" style="display:none">
+          <div class="lp-row-3x4"><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div></div>
+          <div class="lp-row-3x4"><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div></div>
+          <div class="lp-row-3x4"><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div></div>
+          <div class="lp-row-3x4"><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div><div class="lp-slot lp-slot-3x4"></div></div>
+        </div>
+        <!-- 2x4 排版 -->
+        <div class="lp-grid-2x4-wrap" id="lpLayoutGrid2x4" style="display:none">
+          <div class="lp-strip-2x4" id="lpStripLeft2x4">
+            <div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div>
+          </div>
+          <img id="lp2x4Overlay" class="lp-2x4-overlay" alt="" style="display:none">
+          <div class="lp-strip-2x4" id="lpStripRight2x4">
+            <div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div><div class="lp-slot-2x4"></div>
+          </div>
+        </div>
+        <!-- 3x3 layout -->
+        <div class="lp-grid-3x3" id="lpLayoutGrid3x3" style="display:none"></div>
+      </div>
+      <div class="lp-options">
+        <span class="section-label">选择排版</span>
+        <div class="lp-options-row" id="lpOptionsRow">
+          <button class="layout-option layout-option--active" id="lpOpt2x2" onclick="LayoutPreviewPage.selectLayout('2x2-grid')">
+            <div class="layout-preview-icon layout-preview-2x2"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+            <span class="layout-option-label">2×2</span>
+          </button>
+          <button class="layout-option" id="lpOpt1x4" onclick="LayoutPreviewPage.selectLayout('1x4-vertical')">
+            <div class="layout-preview-icon layout-preview-1x4"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+            <span class="layout-option-label">1×4</span>
+          </button>
+          <button class="layout-option" id="lpOpt3x4" onclick="LayoutPreviewPage.selectLayout('3x4-grid')">
+            <div class="layout-preview-icon layout-preview-3x4">
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+            </div>
+            <span class="layout-option-label">3×4</span>
+          </button>
+          <button class="layout-option" id="lpOpt2x4straight" onclick="LayoutPreviewPage.selectLayout('2x4-straight')" style="display:none">
+            <div class="layout-preview-icon layout-preview-2x4">
+              <div class="lpi-col"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+              <div class="lpi-col"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+            </div>
+            <span class="layout-option-label">2×4 正</span>
+          </button>
+          <button class="layout-option" id="lpOpt2x4tilted" onclick="LayoutPreviewPage.selectLayout('2x4-tilted')" style="display:none">
+            <div class="layout-preview-icon layout-preview-2x4" style="transform:rotate(-3deg)">
+              <div class="lpi-col"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+              <div class="lpi-col"><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div></div>
+            </div>
+            <span class="layout-option-label">2×4 斜</span>
+          </button>
+          <button class="layout-option" id="lpOpt3x3" onclick="LayoutPreviewPage.selectLayout('3x3-grid')" style="display:none">
+            <div class="layout-preview-icon layout-preview-3x3">
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+              <div class="lpi-cell"></div><div class="lpi-cell"></div><div class="lpi-cell"></div>
+            </div>
+            <span class="layout-option-label">3×3</span>
+          </button>
+        </div>
+      </div>
+      <div class="lp-bottom">
+        <button class="lp-next-btn" id="lpNextBtn" onclick="LayoutPreviewPage.onNext()">下一步</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Camera 拍照页 ==================== -->
+  <section id="page-camera" class="page" style="display:none">
+    <div class="camera-page">
+      <button class="nav-back-btn nav-back-btn--dark" style="position:absolute;top:12px;left:72px;" onclick="CameraPage.goHome()"><div class="nav-back-arrow"></div></button>
+
+      <div class="camera-area" id="cameraArea">
+        <video id="camVideo" class="cam-video" autoplay playsinline muted></video>
+        <canvas id="camMockCanvas" class="cam-mock-canvas" style="display:none"></canvas>
+        <canvas id="camFrostCanvas" class="cam-frost-canvas" style="display:none"></canvas>
+        <div id="frostHint" class="frost-hint" style="display:none">张嘴哈气 ❄️ 起雾后，用手指在雾气上画画</div>
+        <div id="frostStatus" class="frost-status" style="display:none">人脸: 识别中</div>
+        <button id="frostClearBtn" class="frost-clear-btn" style="display:none" onclick="CameraPage._clearFrostMask()">擦干净 🧽</button>
+        <div id="frostWipeDot" class="frost-wipe-dot" style="display:none"></div>
+        <div id="frostLoading" class="frost-loading" style="display:none">
+          <div class="frost-loading-spinner"></div>
+          <div class="frost-loading-text">正在加载人脸识别模型…</div>
+        </div>
+        <img id="camPreviewImg" class="cam-preview-img" style="display:none" alt="">
+        <div class="vf-frame">
+          <div class="vf-corner vf-corner--tl"></div>
+          <div class="vf-corner vf-corner--tr"></div>
+          <div class="vf-corner vf-corner--bl"></div>
+          <div class="vf-corner vf-corner--br"></div>
+        </div>
+        <!-- Flash button -->
+        <button class="camera-flash-btn" id="camFlashBtn" onclick="CameraPage.onToggleFlash()" title="闪光灯">⚡</button>
+        <!-- Flip camera button -->
+        <button class="camera-flip-btn" id="camFlipBtn2" onclick="CameraPage.onFlipCamera()" title="翻转摄像头">↻</button>
+      </div>
+
+      <!-- 变焦滑块 -->
+      <div class="zoom-slider-area" id="zoomSliderArea" style="display:none">
+        <input type="range" class="zoom-slider" id="zoomSlider" min="1" max="3" step="0.1" value="1" oninput="CameraPage.onZoomChange(this.value)">
+      </div>
+      <div class="shutter-area" id="shutterArea">
+        <button class="shutter-ring" id="shutterBtn" onclick="CameraPage.onTapShutter()">
+          <div class="shutter-inner"></div>
+        </button>
+      </div>
+
+      <div class="mini-map" id="miniMap" style="display:none">
+        <span class="mini-map-title">预览</span>
+        <div class="mini-map-2x2" id="miniMapGrid"></div>
+      </div>
+
+      <div class="countdown-badge" id="countdownBadge">
+        <span class="countdown-num" id="countdownNum">30</span>
+      </div>
+
+      <div class="mock-badge" id="mockBadge" style="display:none">模拟器</div>
+
+      <div class="cam-retake-hint" id="retakeHint" style="display:none">
+        重新拍摄第 <b id="retakeSlotLabel">1</b> 格
+      </div>
+
+      <div class="cam-action-bar">
+        <div class="cam-action-hint" id="hintShoot">
+          <span class="cam-action-hint-text" id="hintShootText">轻点快门拍摄第 1/4 张</span>
+        </div>
+        <div class="cam-action-row" id="rowPreview" style="display:none">
+          <button class="cam-action-btn cam-action-btn-retake" onclick="CameraPage.onTapRetake()">重拍</button>
+          <button class="cam-action-btn cam-action-btn-confirm" id="btnConfirm" onclick="CameraPage.onTapConfirm()">下一步</button>
+        </div>
+        <div class="cam-action-row" id="rowDone" style="display:none">
+          <button class="cam-action-btn cam-action-btn-retake" onclick="CameraPage.onTapRetakeAll()">全部重拍</button>
+          <button class="cam-action-btn cam-action-btn-confirm" onclick="CameraPage.onTapFinish()">完成</button>
+        </div>
+        <div class="cam-dots" id="camDots"></div>
+      </div>
+
+      <div class="star-overlay" id="starOverlay" style="display:none">
+        <div class="star-shape" id="starShape"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Preview 预览导出页 ==================== -->
+  <section id="page-preview" class="page" style="display:none">
+    <div class="preview-page">
+      <!-- Step 1: 排版 + 遮罩 -->
+      <div id="previewLayoutStep">
+        <div class="nav-bar glass-card">
+          <span class="nav-title">预览排版</span>
+          <span class="nav-template-name" id="previewTplName">暖色系</span>
+        </div>
+
+        <!-- 排版展示区 -->
+        <div class="lp-display" id="lpDisplay">
+          <img class="lp-bg-img" id="lpBgImg" alt="" style="display:none">
+          <div class="lp-bg-placeholder" id="lpBgPlaceholder"></div>
+          <!-- 2x2 grid -->
+          <div class="lp-grid lp-grid-2x2" id="lpGrid2x2"></div>
+          <!-- 1x4 vertical -->
+          <div class="lp-grid lp-grid-1x4" id="lpGrid1x4" style="display:none"></div>
+          <!-- 3x4 grid -->
+          <div class="lp-grid lp-grid-3x4" id="lpGrid3x4" style="display:none"></div>
+          <!-- TV static noise -->
+          <canvas id="noiseCanvas" class="noise-canvas" style="display:none"></canvas>
+          <!-- 2x4 layout -->
+          <div class="lp-grid-2x4-wrap" id="lpGrid2x4Wrap" style="display:none">
+            <div class="lp-strip-2x4" id="pvStripLeft"></div>
+            <img id="lp2x4OverlayImg" class="lp-2x4-overlay" alt="" style="display:none">
+            <div class="lp-strip-2x4" id="pvStripRight"></div>
+          </div>
+          <!-- 3x3 layout -->
+          <div class="lp-grid-3x3" id="lpGrid3x3" style="display:none"></div>
+          <!-- 遮罩叠加层 -->
+          <div class="mask-overlay" id="maskOverlay" style="display:none">
+            <div class="mask-blob mask-blob-1"></div>
+            <div class="mask-blob mask-blob-2"></div>
+            <img class="mask-gem-img" id="maskGemImg" alt="" style="display:none">
+            <div id="starDotsContainer"></div>
+          </div>
+        </div>
+
+        <!-- 重拍操作栏 -->
+        <div class="step-retake-bar" id="retakeBar" style="display:none">
+          <button class="retake-cancel-btn" onclick="PreviewPage.cancelRetake()">取消</button>
+          <button class="retake-go-btn" id="retakeGoBtn" onclick="PreviewPage.confirmRetake()">重拍第 1 格</button>
+        </div>
+
+        <!-- 遮罩选择 -->
+        <div class="mask-options">
+          <span class="section-label">选择遮罩</span>
+          <div class="mask-scroll" id="maskScroll"></div>
+        </div>
+
+        <!-- 波点颜色选择 -->
+        <div class="mask-options" id="dotColorSection" style="display:none">
+          <span class="section-label">波点颜色</span>
+          <div class="mask-scroll" id="dotColorScroll"></div>
+        </div>
+
+        <!-- 边框选择 -->
+        <div class="mask-options">
+          <span class="section-label">选择边框</span>
+          <div class="mask-scroll" id="borderScroll"></div>
+        </div>
+
+        <!-- 滤镜选择 -->
+        <div class="mask-options">
+          <span class="section-label">选择滤镜</span>
+          <div class="mask-scroll" id="filterScroll"></div>
+        </div>
+
+        <!-- 双滤镜选择（2x4 专用） -->
+        <div class="mask-options" id="dualFilterSection" style="display:none">
+          <span class="section-label">左条滤镜</span>
+          <div class="mask-scroll" id="dualFilterLeftScroll"></div>
+          <span class="section-label" style="margin-top:8px">右条滤镜</span>
+          <div class="mask-scroll" id="dualFilterRightScroll"></div>
+        </div>
+        <!-- 双边框选择（2x4 专用） -->
+        <div class="mask-options" id="dualBorderSection" style="display:none">
+          <span class="section-label">左条边框</span>
+          <div class="mask-scroll" id="dualBorderLeftScroll"></div>
+          <span class="section-label" style="margin-top:8px">右条边框</span>
+          <div class="mask-scroll" id="dualBorderRightScroll"></div>
+        </div>
+
+        <!-- 模板7文字编辑 -->
+        <div class="mask-options" id="tourTextSection" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 24px;margin-bottom:8px">
+            <span class="section-label" style="padding:0;margin-bottom:0">编辑文字</span>
+            <button style="background:#007AFF;color:#FFF;border:none;border-radius:999px;padding:6px 18px;font-size:13px;font-weight:600;cursor:pointer" onclick="PreviewPage.updateTourText()">更新</button>
+          </div>
+          <div class="mask-scroll" id="tourTextScroll" style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">标题</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputTitle" type="text" maxlength="30" placeholder="最多30字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">1</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN0" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">2</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN1" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">3</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN2" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">4</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN3" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">5</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN4" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">6</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN5" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">7</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN6" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">8</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN7" type="text" maxlength="15" placeholder="最多15字"></div>
+            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;font-weight:400;width:28px;max-width:56px;text-align:center;color:#8E8E93">9</span><input class="gen-text-input" style="flex:1;height:24px;padding:0 8px;font-family:ClassyVogue,HakugenCopy,sans-serif" id="tourInputN8" type="text" maxlength="15" placeholder="最多15字"></div>
+          </div>
+        </div>
+
+        <div class="step-btn-area" id="previewActionBar">
+          <button class="step-btn" id="btnNextStep" onclick="PreviewPage.nextStep()">下一步</button>
+        </div>
+      </div>
+
+      <!-- Step 2: 导出 -->
+      <div id="previewExportStep" style="display:none">
+        <div class="nav-bar glass-card">
+          <button class="nav-back-sm" onclick="PreviewPage.prevStep()">←</button>
+          <span class="nav-title">导出</span>
+          <span class="nav-template-name" id="exportLabel">静态图</span>
+        </div>
+        <div class="export-tabs" id="exportTabs">
+          <button class="export-tab export-tab--active" data-mode="static" onclick="PreviewPage.switchMode('static')">静态图</button>
+          <button class="export-tab" data-mode="slideshow" onclick="PreviewPage.switchMode('slideshow')">轮播</button>
+          <button class="export-tab" data-mode="timelapse" id="tabTimelapse" onclick="PreviewPage.switchMode('timelapse')">过程</button>
+        </div>
+        <!-- 静态/过程预览 -->
+        <div class="export-preview-area" id="exportPreview">
+          <div class="lp-display" id="exportLpDisplay">
+            <canvas class="noise-canvas" id="exportNoiseCanvas" style="display:none"></canvas>
+            <img class="lp-bg-img" id="exportBgImg" alt="" style="display:none">
+            <div class="lp-bg-placeholder" id="exportBgPlaceholder"></div>
+            <div class="lp-grid lp-grid-2x2" id="exportGrid2x2"></div>
+            <div class="lp-grid lp-grid-1x4" id="exportGrid1x4" style="display:none"></div>
+            <div class="lp-grid lp-grid-3x4" id="exportGrid3x4" style="display:none"></div>
+            <div class="lp-grid-2x4-wrap" id="exportGrid2x4Wrap" style="display:none">
+              <div class="lp-strip-2x4" id="exportStripLeft2x4"></div>
+              <img id="export2x4OverlayImg" class="lp-2x4-overlay" alt="" style="display:none">
+              <div class="lp-strip-2x4" id="exportStripRight2x4"></div>
+            </div>
+            <div class="lp-grid-3x3" id="exportGrid3x3" style="display:none"></div>
+            <div class="mask-overlay" id="exportMaskOverlay" style="display:none">
+              <div class="mask-blob mask-blob-1"></div>
+              <div class="mask-blob mask-blob-2"></div>
+              <img class="mask-gem-img" id="exportMaskGemImg" alt="" style="display:none">
+              <div id="exportStarDotsContainer"></div>
+            </div>
+          </div>
+        </div>
+        <!-- 轮播预览 -->
+        <div class="anim-preview" id="animPreview" style="display:none">
+          <canvas class="noise-canvas" id="animNoiseCanvas" style="display:none"></canvas>
+          <img class="lp-bg-img" id="animBgImg" alt="" style="display:none">
+          <img class="anim-frame-img" id="animFrame" alt="">
+          <img id="animOverlayImg" class="lp-2x4-overlay" alt="" style="display:none">
+          <div class="mask-overlay" id="animMaskOverlay" style="display:none">
+            <div class="mask-blob mask-blob-1"></div>
+            <div class="mask-blob mask-blob-2"></div>
+            <img class="mask-gem-img" id="animMaskGemImg" alt="" style="display:none">
+          </div>
+        </div>
+        <!-- 过程动图帧进度 -->
+        <div class="timelapse-progress" id="timelapseProgress" style="display:none">
+          <div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div><div class="tl-dot"></div>
+          <span class="tl-label" id="tlLabel">过程回放 · 1/10</span>
+        </div>
+        <div class="step-btn-area">
+          <button class="step-btn" id="btnExport" onclick="PreviewPage.exportImage()">保存高清图到相册</button>
+          <span class="export-hint" id="exportHint">1080px 高清 PNG</span>
+          <button class="step-btn step-btn--home" onclick="PreviewPage.backHome()" style="margin-top:8px;">返回首页</button>
+        </div>
+      </div>
+    </div>
+    <canvas id="exportCanvas" style="display:none"></canvas>
+  </section>
+
+  <!-- ==================== 裁剪浮层（全局复用） ==================== -->
+  <div class="crop-overlay" id="cropOverlay" style="display:none">
+    <div class="crop-movable-area" id="cropMovableArea">
+      <div class="crop-movable-view" id="cropMovableView">
+        <img class="crop-image" id="cropImage" alt="">
+      </div>
+    </div>
+    <div class="crop-frame-border" id="cropFrameBorder">
+      <div class="cf-corner cf-corner--tl"></div>
+      <div class="cf-corner cf-corner--tr"></div>
+      <div class="cf-corner cf-corner--bl"></div>
+      <div class="cf-corner cf-corner--br"></div>
+    </div>
+    <div class="crop-masks">
+      <div class="crop-mask-top" id="cropMaskTop"></div>
+      <div class="crop-mask-left" id="cropMaskLeft"></div>
+      <div class="crop-mask-right" id="cropMaskRight"></div>
+      <div class="crop-mask-bottom" id="cropMaskBottom"></div>
+    </div>
+    <div class="crop-hint" id="cropHint">双指缩放 · 拖动调整</div>
+    <div class="crop-actions">
+      <button class="crop-btn crop-btn-cancel" onclick="CropTool.cancel()">取消</button>
+      <button class="crop-btn crop-btn-confirm" onclick="CropTool.confirm()">确认裁剪</button>
+    </div>
+  </div>
+  <canvas id="cropCanvas" class="crop-canvas-hidden"></canvas>
+
+  <!-- ==================== 全局浮层 ==================== -->
+
+  <!-- Toast -->
+  <div class="toast" id="toast" style="display:none"><span id="toastMsg"></span></div>
+
+  <!-- Action Sheet -->
+  <div class="action-sheet-mask" id="asMask" style="display:none" onclick="UI.hideActionSheet()"></div>
+  <div class="action-sheet" id="actionSheet" style="display:none">
+    <div class="as-list" id="asList"></div>
+    <button class="as-cancel" onclick="UI.hideActionSheet()">取消</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-mask" id="loadingMask" style="display:none">
+    <div class="loading-spinner"></div>
+  </div>
+
+  <!-- face-api.js：人脸检测 + 68 点 landmark（纯 TF.js，无 WASM，无 Emscripten） -->
+  <script src="assets/face-api/tf.min.js"></script>
+  <script src="assets/face-api/face-api.min.js"></script>
+  <script src="app.js?v=76"></script>
+</body>
+</html>
