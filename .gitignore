@@ -1,2 +1,5 @@
 # 大字体原文件（已本地转为 woff2，仓库中移除以免超过 Cloudflare 25MB 单文件限制）
 fonts/hakugencopy.ttf
+
+# 未使用文件（本地暂存，不上传 GitHub）
+未使用/
