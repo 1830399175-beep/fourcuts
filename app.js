@@ -340,9 +340,18 @@ function drawNoise(ctx, w, h) {
 }
 
 /* ==================== 路由 ==================== */
+// 需要白底遮罩拦截"进入前资源未就绪"的页面（拍照页、预览页、首页除外）
+var GATED = {
+  'page-generator': 1,
+  'page-generator-dot': 1,
+  'page-generator-plaid': 1,
+  'page-generator-frost': 1,
+  'page-layout-preview': 1
+};
 var pageRouter = {
   stack: ['page-home'],
   navigateTo: function(pageId) {
+    if (GATED[pageId]) Gate.show(pageId);
     var cur = this.stack[this.stack.length - 1];
     var el = document.getElementById(cur);
     if (el) el.style.display = 'none';
@@ -357,6 +366,7 @@ var pageRouter = {
     else if (pageId === 'page-layout-preview') LayoutPreviewPage.onShow();
     else if (pageId === 'page-camera') CameraPage.onShow();
     else if (pageId === 'page-preview') PreviewPage.onShow();
+    if (GATED[pageId]) Gate.arm(pageId);
     window.scrollTo(0, 0);
   },
   navigateBack: function() {
@@ -375,6 +385,7 @@ var pageRouter = {
     window.scrollTo(0, 0);
   },
   redirectTo: function(pageId) {
+    if (GATED[pageId]) Gate.show(pageId);
     var cur = this.stack.pop();
     var el = document.getElementById(cur);
     if (el) el.style.display = 'none';
@@ -383,6 +394,7 @@ var pageRouter = {
     if (next) next.style.display = '';
     if (pageId === 'page-home') HomePage.render();
     if (pageId === 'page-layout-preview') LayoutPreviewPage.onShow();
+    if (GATED[pageId]) Gate.arm(pageId);
     window.scrollTo(0, 0);
   }
 };
@@ -423,6 +435,107 @@ var UI = {
   hideLoading: function() {
     document.getElementById('loadingMask').style.display = 'none';
   },
+};
+
+/* ==================== 资源就绪判定：字体预载 + 白底遮罩拦截 ==================== */
+var FontLoader = {
+  _state: {},   // family -> 'pending'|'ready'|'failed'|'nofonts'
+  load: function(families, timeoutMs) {
+    families = families || [];
+    if (!families.length) return Promise.resolve();
+    if (!document.fonts || !document.fonts.load) {
+      families.forEach(function(f) { FontLoader._state[f] = 'nofonts'; });
+      return Promise.resolve();
+    }
+    var t = timeoutMs || 3000;
+    var pending = families.map(function(f) {
+      if (FontLoader._state[f] === 'ready' || FontLoader._state[f] === 'failed') return Promise.resolve();
+      FontLoader._state[f] = 'pending';
+      return document.fonts.load('16px "' + f + '"', 'MW0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+        .then(function() { FontLoader._state[f] = 'ready'; })
+        .catch(function() { FontLoader._state[f] = 'failed'; });
+    });
+    return Promise.race([
+      Promise.all(pending).then(function() {}),
+      new Promise(function(resolve) { setTimeout(resolve, t); })
+    ]);
+  },
+  allLoadedFor: function(families) {
+    return (families || []).every(function(f) {
+      return FontLoader._state[f] === 'ready' || FontLoader._state[f] === 'nofonts';
+    });
+  }
+};
+
+var Gate = {
+  _timer: null,
+  _curId: null,
+  _ready: {
+    'page-generator': function() { return !!GeneratorPage._bgPath; },
+    'page-generator-dot': function() { return !!GeneratorDotPage._bgPath; },
+    'page-generator-plaid': function() { return !!GeneratorPlaidPage._bgPath; },
+    'page-generator-frost': function() { return !!GeneratorFrostPage._bgPath; },
+    'page-layout-preview': function() {
+      return Gate._imagesReady('lpLayoutDisplay') && FontLoader.allLoadedFor(['ClassyVogue']);
+    },
+    'boot': function() {
+      return Gate._imagesReady('templateGrid') && Gate._imagesReady('brandBgWrap') &&
+        FontLoader.allLoadedFor(['Singsong', 'QieYeYuanTi', 'ClassyVogue']);
+    }
+  },
+  show: function(id, text) {
+    this._curId = id;
+    var mask = document.getElementById('gateMask');
+    if (!mask) return;
+    var t = document.getElementById('gateText');
+    if (t && text) t.textContent = text;
+    mask.style.opacity = '1';
+    mask.style.display = '';
+  },
+  hide: function() {
+    var mask = document.getElementById('gateMask');
+    this._curId = null;
+    if (!mask) return;
+    mask.style.opacity = '0';
+    setTimeout(function() { if (mask.style.opacity === '0') mask.style.display = 'none'; }, 260);
+  },
+  // id：要等哪个就绪谓词；timeoutMs 超时后强制放行，避免白屏卡死
+  arm: function(id, timeoutMs) {
+    var that = this;
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (this._curId !== id) return;   // show/arm 须配对同一目标
+    var started = Date.now();
+    var t = timeoutMs || 4000;
+    this._timer = setInterval(function() {
+      var ready = false;
+      try { ready = that._ready[id] ? that._ready[id]() : true; }
+      catch (e) { ready = false; }
+      if (ready) {
+        clearInterval(that._timer);
+        that._timer = null;
+        that.hide();
+      } else if (Date.now() - started > t) {
+        clearInterval(that._timer);
+        that._timer = null;
+        that.hide();
+        try { UI.showToast('页面资源尚未完全就绪，已放行'); } catch (e) {}
+      }
+    }, 60);
+  },
+  // containerId 内所有"可见且 src 非空"的 <img> 均已加载解码
+  // （空 src 的预留位、display:none 或祖先隐藏的图不算，避免永远就绪不了）
+  _imagesReady: function(containerId) {
+    var root = document.getElementById(containerId);
+    if (!root) return false;
+    var imgs = root.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) {
+      var im = imgs[i];
+      if (!im.getAttribute('src')) continue;      // 空 src 预留位不算
+      if (im.offsetParent === null) continue;     // 不可见（display:none / 祖先隐藏）不算
+      if (im.complete === false || im.naturalWidth === 0) return false;
+    }
+    return true;
+  }
 };
 
 /* ==================== 文件输入工具 ==================== */
@@ -842,6 +955,13 @@ var BeautyEngine = {
   _overlayImages: [],
   _overlayStatus: 'loading',
   _onOverlaysReady: null,
+  _onOverlaysReadyCbs: [],
+
+  // 订阅纹理加载终结（ready/failed 都会回调）；若已非 loading 则立即回调
+  onOverlaysSettled: function(cb) {
+    if (this._overlayStatus !== 'loading') { cb(this._overlayStatus); return; }
+    this._onOverlaysReadyCbs.push(cb);
+  },
 
   initOverlays: function() {
     var paths = [
@@ -878,6 +998,11 @@ var BeautyEngine = {
       this._overlayStatus = 'failed';
     }
     if (this._onOverlaysReady) this._onOverlaysReady(this._overlayStatus);
+    var cbs = this._onOverlaysReadyCbs;
+    this._onOverlaysReadyCbs = [];
+    for (var i = 0; i < cbs.length; i++) {
+      try { cbs[i](this._overlayStatus); } catch (e) {}
+    }
   },
 };
 
@@ -1028,20 +1153,31 @@ var GeneratorPage = {
     document.getElementById('genPreviewMask').style.display = 'none';
     var input = document.getElementById('genInput');
     input.value = '';
-    // Bind real-time uppercase filter
-    input.removeEventListener('input', that._inputHandler);
-    that._inputHandler = function() {
+    // 输入过滤：仅保留中英文并限 7 字；不再做大小写改写/回写，避免打断中文拼音输入法（大写只在生成成图时处理）
+    var sanitize = function() {
       var cursorPos = input.selectionStart;
       var raw = input.value;
       var cleaned = raw.replace(/[^一-鿿a-zA-Z]/g, '');
-      cleaned = cleaned.replace(/[a-z]/g, function(ch) { return ch.toUpperCase(); });
       if (cleaned.length > 7) cleaned = cleaned.slice(0, 7);
       if (cleaned !== raw) {
         input.value = cleaned;
         input.setSelectionRange(Math.min(cursorPos, cleaned.length), Math.min(cursorPos, cleaned.length));
       }
     };
+    input.removeEventListener('input', that._inputHandler);
+    input.removeEventListener('compositionstart', that._onCompStart);
+    input.removeEventListener('compositionend', that._onCompEnd);
+    that._composing = false;
+    that._inputHandler = function(e) {
+      if (e && e.isComposing) return;   // 组词/候选期间不改写 value，避免拼音被打断
+      if (that._composing) return;
+      sanitize();
+    };
+    that._onCompStart = function() { that._composing = true; };
+    that._onCompEnd = function() { that._composing = false; sanitize(); };
     input.addEventListener('input', that._inputHandler);
+    input.addEventListener('compositionstart', that._onCompStart);
+    input.addEventListener('compositionend', that._onCompEnd);
     document.getElementById('genNextBtn').style.opacity = '0.5';
 
     // 字体验证
@@ -1280,6 +1416,7 @@ var GeneratorPage = {
   },
 
   onNext: function() {
+    if (!this._bgPath) { UI.showToast('背景尚未生成，请稍候'); return; }
     window.__globalData.generatedBg = this._bgPath || '';
     pageRouter.redirectTo('page-layout-preview');
   },
@@ -1377,6 +1514,7 @@ var GeneratorDotPage = {
   },
 
   onNext: function() {
+    if (!this._bgPath) { UI.showToast('背景尚未生成，请稍候'); return; }
     window.__globalData.generatedBg = this._bgPath || '';
     pageRouter.redirectTo('page-layout-preview');
   },
@@ -1458,6 +1596,7 @@ var GeneratorFrostPage = {
   },
 
   onNext: function() {
+    if (!this._bgPath) { UI.showToast('背景尚未生成，请稍候'); return; }
     window.__globalData.generatedBg = this._bgPath || '';
     // tpl-08 的 3x3 tour 标题为 "foggy memories"，进入排版页前就绪（否则画布会 fallback 成 "a tour with me"）
     window.__globalData.tourConfig = { bgColor: '#FFFFFF', titleText: 'foggy memories', numberTexts: ['1','2','3','4','5','6','7','8','9'] };
@@ -1646,6 +1785,7 @@ var GeneratorPlaidPage = {
   },
 
   onNext: function() {
+    if (!this._bgPath) { UI.showToast('背景尚未生成，请稍候'); return; }
     window.__globalData.generatedBg = this._bgPath || '';
     pageRouter.redirectTo('page-layout-preview');
   },
@@ -3261,6 +3401,18 @@ var PreviewPage = {
   _bgImageUrl: '',
   _noiseTimer: null,
   _noiseSeed: 0,
+  _texturePendingFilter: false,
+  _texturePendingDual: null,
+  _texMode: 'idle',          // 'idle'|'loading'|'fail' —— 居中提示胶囊当前形态
+  _texFailTimer: null,       // 失败提示 2 秒自隐计时器
+  _texSubscribed: false,     // 防重复订阅 onOverlaysSettled
+  _texFailShown: false,      // 本页进场后是否已提示过"加载失败"（避免遮罩/边框切换时重复弹）
+  _maskMode: 'idle',         // 遮罩胶囊形态 'idle'|'loading'|'fail'
+  _maskFailTimer: null,      // 遮罩失败提示 2 秒自隐计时器
+  _maskFailShown: false,     // 本页进场后遮罩"加载失败"是否已提示过
+  _gemLoaded: false,         // 当前所需宝石图是否已加载成功（跨重选保留，已加载不再重复等）
+  _gemError: false,          // 当前所需宝石图是否加载失败
+  _gemPath: '',              // 已加载成功的宝石图文件名（gem-3x4.png / gem-9x16.png）
 
   onShow: function() {
     var gd = window.__globalData;
@@ -3343,6 +3495,31 @@ var PreviewPage = {
 
     this._updateRetakeBar();
     this._refreshBeautifiedPreviews();
+
+    // 滤镜纹理就绪闸（重置上次挂起/提示状态并同步按钮与居中胶囊）
+    this._texturePendingFilter = false;
+    this._texturePendingDual = null;
+    this._texReset();
+    // 遮罩图片闸：监听宝石 <img> 的加载/失败，驱动"遮罩加载中/失败"胶囊与按钮锁定
+    this._maskReset();
+    var mImg = document.getElementById('maskGemImg');
+    if (mImg) {
+      var mTh = this;
+      mImg.onload = function() {
+        mTh._gemError = false;
+        mTh._gemLoaded = true;
+        mTh._gemPath = String(mImg.src || '').split('/').pop();
+        mTh._syncMaskGate();
+      };
+      mImg.onerror = function() {
+        mTh._gemError = true;
+        mTh._gemLoaded = false;
+        mTh._gemPath = '';
+        mTh._syncMaskGate();
+      };
+    }
+    this._syncTextureGate();
+    this._syncMaskGate();
   },
 
   _renderTiledBg: function(bgTile) {
@@ -3680,6 +3857,8 @@ var PreviewPage = {
   },
 
   selectMask: function(maskId) {
+    // 遮罩图片加载期间：遮罩区整体置灰、点无效（滤镜/边框仍可切换）
+    if (this._maskLocked()) return;
     if (maskId === null || maskId === this._currentMaskId) {
       this._currentMaskId = null;
       this._currentMaskMeta = null;
@@ -3695,10 +3874,23 @@ var PreviewPage = {
         this._starDots = [];
       }
     }
+    // 若选中的遮罩需要图片（宝石）：当前并未持有可用的那套 → 清除旧 src/错误标记，重新等待加载
+    var needImg = this._currentMaskMeta && this._currentMaskMeta.usesImage;
+    if (needImg && (!this._gemLoaded || this._gemError)) {
+      this._gemError = false;
+      this._gemLoaded = false;
+      this._gemPath = '';
+      this._maskFailShown = false;
+      var gEl = document.getElementById('maskGemImg');
+      if (gEl) gEl.removeAttribute('src'); // 稍后 _applyMaskToUI 重新赋值以触发加载
+    }
     document.getElementById('dotColorSection').style.display = this._currentMaskId === 'mask-18' ? '' : 'none';
     this._renderMaskSelector();
     this._renderDotColorSelector();
     this._applyMaskToUI('maskOverlay', 'maskGemImg', 'starDotsContainer', true);
+    // 遮罩/滤镜均可切换；重新断言两扇闸，加载中胶囊仍在上层/不消失
+    this._syncTextureGate();
+    this._syncMaskGate();
   },
 
   _applyMaskToUI: function(overlayId, gemImgId, starsContainerId, isLayout) {
@@ -3787,17 +3979,22 @@ var PreviewPage = {
   },
 
   selectFilter: function(filterId) {
-    // 黑白胶片：检查纹理是否就绪
-    if (filterId === 'bw_film') {
-      if (BeautyEngine._overlayStatus === 'loading') {
-        UI.showToast('滤镜纹理正在加载中，请稍后重试');
-        return;
-      }
-      if (BeautyEngine._overlayStatus === 'failed') {
-        UI.showToast('滤镜纹理加载失败，请检查网络');
-      }
-    }
+    var that = this;
     var cfg = window.__globalData.beautyConfig;
+    // 纹理加载期间：需用到黑白胶片的当前配置 → 整体置灰，切滤镜无效（遮罩/边框不受影响）
+    if (this._texLocked()) return;
+    // 黑白胶片：纹理未就绪时挂起选择，显示常驻居中提示胶囊并禁用"下一步"
+    if (filterId === 'bw_film' && BeautyEngine._overlayStatus === 'loading') {
+      that._texturePendingFilter = true;
+      that._syncTextureGate();
+      return;
+    }
+    that._texturePendingFilter = false;
+    if (filterId === 'bw_film' && BeautyEngine._overlayStatus === 'failed') {
+      // 纹理已失败仍允许采用黑白胶片（不卡死）；居中提示约 2 秒自动消失
+      that._texFailShown = true; // 防 sync 同操作重复弹
+      that._texShowFailBrief();
+    }
     if (cfg.filterName === filterId) {
       cfg.filterName = 'natural';
     } else {
@@ -3805,6 +4002,7 @@ var PreviewPage = {
     }
     this._renderFilterSelector();
     this._refreshBeautifiedPreviews();
+    this._syncTextureGate();
   },
 
   _FILTER_LIST: [
@@ -3834,10 +4032,26 @@ var PreviewPage = {
   },
 
   selectDualFilter: function(side, filterId) {
+    var that = this;
     var current = this._dualFilter[side] || 'natural';
+    // 纹理加载期间：任一侧需用黑白胶片 → 双条滤镜整体置灰，点无效
+    if (this._texLocked()) return;
+    // 黑白胶片：纹理未就绪时挂起选择（就绪后自动补上），期间胶囊常驻并禁用"下一步"
+    if (filterId === 'bw_film' && BeautyEngine._overlayStatus === 'loading') {
+      that._texturePendingDual = { side: side, enable: current !== 'bw_film' };
+      that._syncTextureGate();
+      return;
+    }
+    that._texturePendingDual = null;
+    if (filterId === 'bw_film' && BeautyEngine._overlayStatus === 'failed') {
+      // 失败仍允许采用黑白胶片；居中提示约 2 秒自动消失
+      that._texFailShown = true; // 防 sync 同操作重复弹
+      that._texShowFailBrief();
+    }
     this._dualFilter[side] = (current === filterId) ? 'natural' : filterId;
     this._renderDualFilterSelectors();
     this._refreshBeautifiedPreviews();
+    this._syncTextureGate();
   },
 
   _refreshBeautifiedPreviews: function() {
@@ -3935,6 +4149,8 @@ var PreviewPage = {
     this._borderColor = color || '';
     this._renderBorderSelector();
     this._renderLayoutStep();
+    // 边框可切换；重新断言纹理闸，保证加载中胶囊仍在上层/不消失
+    this._syncTextureGate();
   },
 
   _renderDualBorderSelectors: function() {
@@ -3960,6 +4176,8 @@ var PreviewPage = {
     this._dualBorder[side] = color || '';
     this._renderDualBorderSelectors();
     this._renderLayoutStep();
+    // 双条边框可切换；重新断言纹理闸，保证加载中胶囊仍在上层/不消失
+    this._syncTextureGate();
   },
 
   updateTourText: function() {
@@ -4242,6 +4460,276 @@ var PreviewPage = {
     } else {
       bar.style.display = 'none';
     }
+  },
+
+  /* ---- 滤镜纹理提示胶囊（悬浮于预览图正中央、最上层；loading 常驻 / 失败约 2 秒自隐） ---- */
+  _texHintEl: function() { return document.getElementById('texHint'); },
+  _texSpinEl: function() { return document.getElementById('texHintSpin'); },
+  _texTextEl: function() { return document.getElementById('texHintText'); },
+
+  // 当前配置是否依赖"黑白胶片"纹理（含挂起中的选择与 2x4 双条任一侧）
+  _texNeed: function() {
+    var cfg = window.__globalData.beautyConfig || {};
+    if (this._texturePendingFilter || !!this._texturePendingDual) return true;
+    if (cfg.filterName === 'bw_film') return true;
+    if (is2x4Layout(this.layoutType)) {
+      if (this._dualFilter.left === 'bw_film' || this._dualFilter.right === 'bw_film') return true;
+    }
+    return false;
+  },
+
+  // 纹理加载期间且需用到黑白胶片 → 锁定滤镜区（置灰点无效）
+  _texLocked: function() {
+    return this._texNeed() && BeautyEngine._overlayStatus === 'loading';
+  },
+
+  _texSetLock: function(locked) {
+    var ids = ['filterScroll', 'dualFilterLeftScroll', 'dualFilterRightScroll'];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (el) el.classList.toggle('mask-scroll--locked', !!locked);
+    }
+  },
+
+  // 显示胶囊：mode 'loading' → 转圈 + 常驻文案；mode 'fail' → 无转圈 + 失败文案
+  _texShow: function(mode) {
+    var el = this._texHintEl();
+    var text = this._texTextEl();
+    var spin = this._texSpinEl();
+    if (!el || !text) return;
+    clearTimeout(this._texFailTimer); this._texFailTimer = null;
+    this._texMode = (mode === 'fail') ? 'fail' : 'loading';
+    text.textContent = (mode === 'fail') ? '滤镜加载失败，请检查网络' : '滤镜加载中…';
+    if (spin) spin.style.display = (mode === 'fail') ? 'none' : '';
+    el.style.display = '';
+    void el.offsetWidth; // 强制重排，让淡入过渡生效
+    el.classList.add('show');
+  },
+
+  // 失败提示：约 2 秒后自动消失（放行，不卡死）
+  _texShowFailBrief: function() {
+    var that = this;
+    this._texShow('fail');
+    this._texFailTimer = setTimeout(function() {
+      that._texFailTimer = null;
+      that._texMode = 'idle';
+      var el = that._texHintEl();
+      if (el) {
+        el.classList.remove('show');
+        setTimeout(function() { if (that._texMode === 'idle' && el) el.style.display = 'none'; }, 220);
+      }
+    }, 2000);
+  },
+
+  _texHide: function() {
+    // 失败胶囊按 2 秒自隐走完，不在此提前收起
+    if (this._texMode === 'fail') return;
+    var el = this._texHintEl();
+    this._texMode = 'idle';
+    if (!el) return;
+    if (!el.classList.contains('show')) { el.style.display = 'none'; return; }
+    el.classList.remove('show');
+    var that = this;
+    setTimeout(function() { if (that._texMode === 'idle') el.style.display = 'none'; }, 220);
+  },
+
+  // 页面进场重置：清计时器/订阅/本页失败提示计数，并收起遗留胶囊
+  _texReset: function() {
+    clearTimeout(this._texFailTimer); this._texFailTimer = null;
+    this._texSubscribed = false;
+    this._texFailShown = false;
+    this._texMode = 'idle';
+    var el = this._texHintEl();
+    if (el) { el.classList.remove('show'); el.style.display = 'none'; }
+  },
+
+  // 滤镜纹理就绪闸：需黑白胶片且仍在加载 → 居中胶囊常驻 + 滤镜区置灰点无效 + 真禁用"下一步"；
+  // 就绪（或失败）后胶囊收起（失败先约 2 秒自隐）、滤镜放行、按钮恢复；就绪时自动补上挂起的滤镜选择。
+  _syncTextureGate: function() {
+    var that = this;
+    var need = this._texNeed();
+    var st = BeautyEngine._overlayStatus;
+    var loading = need && st === 'loading';
+    // 下一步禁用与否由两扇闸合并决定（滤镜纹理 / 遮罩图片任一加载中即禁用）
+    this._refreshNextGate();
+    if (loading) {
+      this._texSetLock(true);
+      this._texShow('loading');
+      if (!this._texSubscribed) {
+        this._texSubscribed = true;
+        BeautyEngine.onOverlaysSettled(function(status) {
+          that._texSubscribed = false;
+          if (status === 'ready') {
+            if (that._texturePendingDual) {
+              var d = that._texturePendingDual;
+              that._texturePendingDual = null;
+              that._dualFilter[d.side] = d.enable ? 'bw_film' : 'natural';
+              that._renderDualFilterSelectors();
+            } else if (that._texturePendingFilter) {
+              that._texturePendingFilter = false;
+              var c2 = window.__globalData.beautyConfig;
+              if (c2) c2.filterName = 'bw_film';
+              that._renderFilterSelector();
+            }
+          } else {
+            // 失败：取消挂起避免一直拦着，居中提示一次后放行
+            that._texturePendingFilter = false;
+            that._texturePendingDual = null;
+            that._texFailShown = true;
+            that._texShowFailBrief();
+          }
+          that._syncTextureGate();
+          that._refreshBeautifiedPreviews();
+        });
+      }
+      return;
+    }
+    // 非加载中：滤镜区放行
+    this._texSetLock(false);
+    if (need && st === 'failed') {
+      // 被动失败（进场即失败等）：本页只提示一次，避免切换遮罩/边框时反复弹
+      if (!this._texFailShown) {
+        this._texFailShown = true;
+        this._texShowFailBrief();
+      } else if (this._texMode === 'loading') {
+        this._texHide(); // 兜底：加载胶囊在失败态下收起
+      }
+      // 失败胶囊 2 秒窗口内继续显示（_texHide 对 fail 免疫）
+    } else {
+      this._texHide();
+    }
+  },
+
+  /* ---- 遮罩图片 提示胶囊 + 就绪闸（宝石等 usesImage 遮罩：图片加载慢/失败时等待） ---- */
+  _maskImgSrc: function() {
+    return (this.layoutType === '1x4-vertical' || is2x4Layout(this.layoutType)) ? 'assets/gem-9x16.png' : 'assets/gem-3x4.png';
+  },
+  _maskImgFile: function() {
+    return this._maskImgSrc().split('/').pop();
+  },
+  _maskNeed: function() {
+    return !!(this._currentMaskMeta && this._currentMaskMeta.usesImage);
+  },
+  _maskReady: function() {
+    if (!this._maskNeed()) return true;
+    if (this._gemError) return false;
+    if (this._gemLoaded && this._gemPath === this._maskImgFile()) return true;
+    // 兜底：<img> 自身已完整解码本布局所需那张图
+    var img = document.getElementById('maskGemImg');
+    if (img && img.src && img.complete && img.naturalWidth > 0 &&
+        String(img.src).split('/').pop() === this._maskImgFile()) return true;
+    return false;
+  },
+  _maskLoading: function() {
+    return this._maskNeed() && !this._gemError && !this._maskReady();
+  },
+  _maskLocked: function() {
+    return this._maskLoading();
+  },
+  _maskSetLock: function(locked) {
+    var el = document.getElementById('maskScroll');
+    if (el) el.classList.toggle('mask-scroll--locked', !!locked);
+  },
+
+  // 合并「下一步」锁定：滤镜纹理或遮罩图片任一仍在加载 → 真禁用
+  _texGateLoading: function() {
+    return this._texNeed() && BeautyEngine._overlayStatus === 'loading';
+  },
+  _refreshNextGate: function() {
+    var busy = this._texGateLoading() || this._maskLoading();
+    var btn = document.getElementById('btnNextStep');
+    if (btn) {
+      btn.disabled = !!busy;
+      btn.style.opacity = busy ? '0.45' : '1';
+    }
+  },
+
+  _maskShow: function(mode) {
+    var el = document.getElementById('maskHint');
+    var text = document.getElementById('maskHintText');
+    var spin = document.getElementById('maskHintSpin');
+    if (!el || !text) return;
+    clearTimeout(this._maskFailTimer); this._maskFailTimer = null;
+    this._maskMode = (mode === 'fail') ? 'fail' : 'loading';
+    text.textContent = (mode === 'fail') ? '遮罩加载失败，请检查网络' : '遮罩加载中…';
+    if (spin) spin.style.display = (mode === 'fail') ? 'none' : '';
+    el.style.display = '';
+    void el.offsetWidth; // 强制重排，让淡入过渡生效
+    el.classList.add('show');
+  },
+
+  // 遮罩失败提示：约 2 秒后自动消失（放行，不卡死）
+  _maskShowFailBrief: function() {
+    var that = this;
+    this._maskShow('fail');
+    this._maskFailTimer = setTimeout(function() {
+      that._maskFailTimer = null;
+      that._maskMode = 'idle';
+      var el = document.getElementById('maskHint');
+      if (el) {
+        el.classList.remove('show');
+        setTimeout(function() { if (that._maskMode === 'idle' && el) el.style.display = 'none'; }, 220);
+      }
+    }, 2000);
+  },
+
+  _maskHide: function() {
+    if (this._maskMode === 'fail') return;
+    var el = document.getElementById('maskHint');
+    this._maskMode = 'idle';
+    if (!el) return;
+    if (!el.classList.contains('show')) { el.style.display = 'none'; return; }
+    el.classList.remove('show');
+    var that = this;
+    setTimeout(function() { if (that._maskMode === 'idle') el.style.display = 'none'; }, 220);
+  },
+
+  // 页面进场重置遮罩闸（保留 _gemLoaded/_gemPath：已加载的图不重复等待）
+  _maskReset: function() {
+    clearTimeout(this._maskFailTimer); this._maskFailTimer = null;
+    this._maskFailShown = false;
+    this._maskMode = 'idle';
+    var el = document.getElementById('maskHint');
+    if (el) { el.classList.remove('show'); el.style.display = 'none'; }
+  },
+
+  // 遮罩就绪闸：选中需图片的遮罩且图片仍在加载 → 遮罩区置灰点无效 + 居中"遮罩加载中"胶囊 + 真禁用下一步；
+  // 就绪/失败后收起（失败先约 2 秒自隐）并放行。
+  _syncMaskGate: function() {
+    var need = this._maskNeed();
+    if (!need) {
+      this._maskSetLock(false);
+      this._refreshNextGate();
+      this._maskHide();
+      return;
+    }
+    // 需要图片但尚未持有：确保 <img> 指向本布局所需那张图（必要时重新触发加载）
+    var img = document.getElementById('maskGemImg');
+    if (img && !this._maskReady()) {
+      var curFile = String(img.getAttribute('src') || '').split('/').pop();
+      if (curFile !== this._maskImgFile()) {
+        this._gemError = false;
+        this._gemLoaded = false;
+        this._gemPath = '';
+        img.src = this._maskImgSrc();
+      }
+    }
+    var loading = this._maskLoading();
+    this._maskSetLock(loading);
+    this._refreshNextGate();
+    if (loading) {
+      this._maskShow('loading');
+      return;
+    }
+    if (this._gemError) {
+      // 失败：居中提示一次（约 2 秒自隐），放行不卡死
+      if (!this._maskFailShown) {
+        this._maskFailShown = true;
+        this._maskShowFailBrief();
+      }
+      return;
+    }
+    this._maskHide();
   },
 
   /* ---- Step Navigation ---- */
@@ -6785,6 +7273,11 @@ function writeSubBlocks(buf, data) {
 
 /* ==================== 启动 ==================== */
 HomePage.init();
+
+// 首屏白底遮罩：等首页封面图 + 品牌图 + 关键字体就绪后放行（FontLoader 超时兜底见 load）
+FontLoader.load(['Singsong', 'QieYeYuanTi', 'ClassyVogue']);
+Gate.show('boot');
+Gate.arm('boot');
 
 /* ==================== roundRect polyfill ==================== */
 if (!CanvasRenderingContext2D.prototype.roundRect) {

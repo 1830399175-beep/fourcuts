@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://unpkg.com; worker-src 'self' blob: https://unpkg.com;">
   <title>FourCuts 肆格</title>
-  <link rel="stylesheet" href="app.css?v=52">
+  <link rel="stylesheet" href="app.css?v=55">
 </head>
 <body>
 
@@ -16,7 +16,7 @@
   <section id="page-home" class="page">
     <div class="home-page">
       <!-- 品牌卡片 -->
-      <div class="brand-card">
+      <div class="brand-card" id="brandBgWrap">
         <img class="brand-bg-img" src="assets/brand-bg-new.jpg" alt="">
       </div>
 
@@ -57,7 +57,7 @@
       <div class="gen-input-area">
         <div class="gen-input-row">
           <span class="gen-input-prefix">I ♥️ </span>
-          <input class="gen-input" id="genInput" placeholder="输入文字，如 ME" maxlength="12" style="text-transform:uppercase;">
+          <input class="gen-input" id="genInput" placeholder="输入文字，如 ME" maxlength="12">
           <button class="gen-btn" id="genBtn" onclick="GeneratorPage.onGenerate()">生成</button>
         </div>
       </div>
@@ -358,6 +358,17 @@
             <img class="mask-gem-img" id="maskGemImg" alt="" style="display:none">
             <div id="starDotsContainer"></div>
           </div>
+          <!-- 资源加载提示：悬浮于预览图正中央、最上层（滤镜/遮罩各一枚，可同时叠放） -->
+          <div class="tex-stack" id="texStack">
+            <div class="tex-hint" id="texHint" style="display:none">
+              <span class="tex-spin" id="texHintSpin"></span>
+              <span class="tex-hint-text" id="texHintText">滤镜加载中…</span>
+            </div>
+            <div class="tex-hint" id="maskHint" style="display:none">
+              <span class="tex-spin" id="maskHintSpin"></span>
+              <span class="tex-hint-text" id="maskHintText">遮罩加载中…</span>
+            </div>
+          </div>
         </div>
 
         <!-- 重拍操作栏 -->
@@ -531,6 +542,12 @@
     <button class="as-cancel" onclick="UI.hideActionSheet()">取消</button>
   </div>
 
+  <!-- 白底资源就绪遮罩：字体/图片未显示完全前拦截点击 -->
+  <div class="gate-mask" id="gateMask" style="display:none">
+    <div class="gate-spinner"></div>
+    <div class="gate-text" id="gateText">正在准备模板…</div>
+  </div>
+
   <!-- Loading -->
   <div class="loading-mask" id="loadingMask" style="display:none">
     <div class="loading-spinner"></div>
@@ -539,6 +556,6 @@
   <!-- face-api.js：人脸检测 + 68 点 landmark（纯 TF.js，无 WASM，无 Emscripten） -->
   <script src="assets/face-api/tf.min.js"></script>
   <script src="assets/face-api/face-api.min.js"></script>
-  <script src="app.js?v=76"></script>
+  <script src="app.js?v=79"></script>
 </body>
 </html>
